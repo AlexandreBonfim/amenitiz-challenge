@@ -8,10 +8,24 @@ RSpec.describe CashRegister::Services::Checkout do
   let(:coffee) { CashRegister::Entities::Product.new(code: "CF1", name: "Coffee", price: 11.23) }
 
   let(:base_catalog) { { "GR1" => green_tea } }
-  let(:base_pricing_rules) { [CashRegister::Rules::BogoRule.new(product_code: "GR1")] }
+  let(:bogo_rule) { CashRegister::Rules::BogoRule.new(product_code: "GR1") }
+  let(:bulk_rule) do
+    CashRegister::Rules::BulkPriceRule.new(
+      product_code: "SR1",
+      threshold: 3,
+      discounted_price: BigDecimal("4.50")
+    )
+  end
+  let(:percent_rule) do
+    CashRegister::Rules::PercentDropAllRule.new(
+      product_code: "CF1",
+      threshold: 3,
+      factor: BigDecimal("2") / BigDecimal("3")
+    )
+  end
 
   let(:catalog) { base_catalog }
-  let(:pricing_rules) { base_pricing_rules }
+  let(:pricing_rules) { [bogo_rule, bulk_rule, percent_rule] }
 
   subject(:checkout) { described_class.new(pricing_rules: pricing_rules, catalog: catalog) }
 
@@ -26,6 +40,8 @@ RSpec.describe CashRegister::Services::Checkout do
   end
 
   context "with only the BOGO rule for green tea" do
+    let(:pricing_rules) { [bogo_rule] }
+
     it "charges 3.11 for two green teas" do
       checkout.scan("GR1").scan("GR1")
 
@@ -35,14 +51,7 @@ RSpec.describe CashRegister::Services::Checkout do
 
   context "with a bulk discount on strawberries" do
     let(:catalog) { base_catalog.merge("SR1" => strawberries) }
-    let(:pricing_rules) { base_pricing_rules + [bulk_price_rule] }
-    let(:bulk_price_rule) do
-      CashRegister::Rules::BulkPriceRule.new(
-        product_code: "SR1",
-        threshold: 3,
-        discounted_price: BigDecimal("4.50")
-      )
-    end
+    let(:pricing_rules) { [bulk_rule] }
 
     it "drops the total to 16.61 for the SR1 basket" do
       %w[SR1 SR1 GR1 SR1].each { |code| checkout.scan(code) }
@@ -53,19 +62,23 @@ RSpec.describe CashRegister::Services::Checkout do
 
   context "with a percentage drop on coffee" do
     let(:catalog) { base_catalog.merge("SR1" => strawberries, "CF1" => coffee) }
-    let(:pricing_rules) { base_pricing_rules + [percent_drop_rule] }
-    let(:percent_drop_rule) do
-      CashRegister::Rules::PercentDropAllRule.new(
-        product_code: "CF1",
-        threshold: 3,
-        factor: BigDecimal("2") / BigDecimal("3")
-      )
-    end
+    let(:pricing_rules) { [percent_rule] }
 
     it "totals 30.57 for the mixed coffee basket" do
       %w[GR1 CF1 SR1 CF1 CF1].each { |code| checkout.scan(code) }
 
       expect(checkout.total).to eq(30.57.to_d)
+    end
+  end
+
+  context "with a all rules" do
+    let(:catalog) { base_catalog.merge("SR1" => strawberries, "CF1" => coffee) }
+    let(:pricing_rules) { [bogo_rule, bulk_rule, percent_rule] }
+
+    it "totals 39.07 for the mixed products" do
+      %w[GR1 CF1 SR1 CF1 CF1 GR1 SR1 SR1].each { |code| checkout.scan(code) }
+
+      expect(checkout.total).to eq(39.07.to_d)
     end
   end
 end
