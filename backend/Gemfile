@@ -69,4 +69,6 @@ group :development, :test do
 
   # https://docs.rubocop.org/rubocop-rspec/installation.html
   gem "rubocop-rspec"
+
+  gem "sqlite3", "~> 2.1"
 end

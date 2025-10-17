@@ -1,13 +1,20 @@
 require "bigdecimal"
 require "bigdecimal/util"
+require_relative "../entities/product"
+require_relative "../rules/bogo_rule"
+require_relative "../rules/bulk_price_rule"
+require_relative "../rules/percent_drop_all_rule"
 
-DEFAULT_CATALOG = {
-  "GR1" => CashRegister::Entities::Product.new(code: "GR1", name: "Green Tea",    price: 3.11),
-  "SR1" => CashRegister::Entities::Product.new(code: "SR1", name: "Strawberries", price: 5.00),
-  "CF1" => CashRegister::Entities::Product.new(code: "CF1", name: "Coffee",       price: 11.23)
-}.freeze
+module CashRegister
+  module Services
+    class Checkout
+      DEFAULT_CATALOG = {
+        "GR1" => CashRegister::Entities::Product.new(code: "GR1", name: "Green Tea",    price: 3.11),
+        "SR1" => CashRegister::Entities::Product.new(code: "SR1", name: "Strawberries", price: 5.00),
+        "CF1" => CashRegister::Entities::Product.new(code: "CF1", name: "Coffee",       price: 11.23)
+      }.freeze
 
-DEFAULT_PRICING_RULES = [
+      DEFAULT_PRICING_RULES = [
         CashRegister::Rules::BogoRule.new(product_code: "GR1"),
         CashRegister::Rules::BulkPriceRule.new(
           product_code: "SR1",
@@ -21,11 +28,8 @@ DEFAULT_PRICING_RULES = [
         )
       ].freeze
 
-module CashRegister
-  module Services
-    class Checkout
       def initialize(pricing_rules: DEFAULT_PRICING_RULES, catalog: DEFAULT_CATALOG)
-        @pricing_rules = pricing_rules
+        @pricing_rules = Array(pricing_rules).dup
         @catalog       = catalog
         @items         = []
       end
